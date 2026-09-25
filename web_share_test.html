@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Share Test</title>
+</head>
+<body>
+    <img class="card-image" id="cardImage" src="test_card.jpg" alt="Card">
+    <button class="card-button" id="shareButton">SHARE</button>
+</body>
+<script>
+    // Card to share
+    const cardImage = document.getElementById('cardImage');
+
+    // Sharing
+    let readyToShareFile = null;
+    function prepareShareFile() {
+        
+        // Проверяем, что картинка уже полностью загружена в браузере
+        if (!cardImage.complete) {
+            cardImage.onload = prepareShareFile;
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = cardImage.naturalWidth;
+        canvas.height = cardImage.naturalHeight;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(cardImage, 0, 0);
+
+        canvas.toBlob((blob) => {
+            // Сохраняем файл в глобальную переменную. Он ждет клика.
+            readyToShareFile = new File([blob], 'shared-image.png', { type: 'image/png' });
+            console.log("Файл успешно подготовлен заранее и ждет клика.");
+        }, 'image/png');
+    }
+    // window.onload = prepareShareFile();
+    
+    document.getElementById('shareButton').addEventListener('click', async () => {
+        // Проверяем, успел ли файл подготовиться
+        if (!readyToShareFile) {
+            alert("Изображение еще обрабатывается, пожалуйста, попробуйте снова через секунду.");
+            return;
+        }
+
+        const shareData = {
+            title: 'Card name',
+            text: 'Card description',
+            files: [readyToShareFile] // Используем заранее подготовленный файл
+        };
+
+        try {
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                // Вызов происходит мгновенно после клика, браузер НЕ заблокирует его
+                await navigator.share(shareData);
+                console.log("Успешно отправлено!");
+            } else {
+                console.log("Web Share не поддерживается, запускаем буфер обмена...");
+                // Здесь ваш fallback на Clipboard API (он тоже сработает, так как нет задержки)
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                    "image/png": readyToShareFile,
+                    "text/plain": new Blob([`${shareData.title}\n${shareData.text}`], { type: "text/plain" })
+                    })
+                ]);
+                alert("Скопировано в буфер обмена!");
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error("Ошибка исполнения:", err);
+            }
+        }
+    })
+</script>
+<body
